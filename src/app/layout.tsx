@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Goal Tracker",
-  description: "함께 기록하는 데일리 Goal Tracker",
+  description: "부부가 함께 기록하는 데일리 Goal Tracker",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

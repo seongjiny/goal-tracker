@@ -35,6 +35,13 @@ interface GoalRepository {
 - 1차: 로컬 저장소 구현
 - 1.1차: 동일한 경계 아래 Supabase 구현 및 로컬 데이터 이전
 
+현재 앱은 설정 여부에 따라 두 모드를 제공한다.
+
+- Supabase 환경변수 없음: 브라우저 `localStorage` 기반 미리보기
+- Supabase 환경변수 있음: Kakao OAuth와 Household 공동 데이터
+
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`를 우선 사용하고, 기존 프로젝트의 anon key는 `NEXT_PUBLIC_SUPABASE_ANON_KEY`로 대체할 수 있다.
+
 현재 UI는 항목별 하루 0회 또는 1회만 제공한다. 저장소 메서드는 향후 하루 N회 기록을 위해 `count`를 사용한다.
 
 ## 날짜 정책

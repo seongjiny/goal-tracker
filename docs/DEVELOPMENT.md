@@ -2,7 +2,7 @@
 
 ## 요구 환경
 
-- Node.js 20.9 이상
+- Node.js 22 이상
 - pnpm 11
 
 pnpm이 없다면 최초 한 번 실행한다.
@@ -19,10 +19,11 @@ pnpm install
 pnpm dev
 pnpm lint
 pnpm typecheck
+pnpm test
 pnpm build
 ```
 
-테스트 도구를 추가한 뒤 `test`, `test:e2e` 명령을 이 문서와 `package.json`에 함께 등록한다.
+E2E 테스트를 추가한 뒤 `test:e2e` 명령을 이 문서와 `package.json`에 함께 등록한다.
 
 ## 코드 기준
 

@@ -9,12 +9,23 @@
 - 현재 단계 밖의 기능을 임의로 구현하지 않는다.
 - 날짜와 일일 기록은 `Asia/Seoul` 기준으로 처리한다.
 - 변경 범위에 맞는 lint, typecheck, test, build를 실행한다. 실행하지 못한 검증은 이유를 밝힌다.
+- `.env`, `.env.local` 등 실제 환경변수 파일은 생성 후 절대 읽거나 출력하지 않는다. 키 이름 확인은 `.env.example`만 사용한다.
 
 ## 작업별 참고 문서
 
 - 제품 범위, UX, 단계 또는 완료 기준을 변경할 때: `docs/PRODUCT_PLAN.md`
 - 앱 구조, 데이터 접근, 인증 또는 기술 선택을 변경할 때: `docs/ARCHITECTURE.md`
 - 설치, 명령, 코딩 규칙, 테스트 또는 의존성을 변경할 때: `docs/DEVELOPMENT.md`
-- DB 스키마나 RLS를 작업할 때: `docs/DATA_MODEL.md`가 존재하면 반드시 확인한다.
+- DB 스키마나 RLS를 작업할 때: `docs/DATA_MODEL.md`와 `database/README.md`를 반드시 확인한다.
 
 관련 작업을 시작하기 전에 해당 문서를 읽고, 결정이 바뀌면 코드와 문서를 함께 갱신한다. 관련 없는 문서는 읽거나 반복 요약하지 않는다.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
