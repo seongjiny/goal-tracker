@@ -51,3 +51,15 @@ test("우리 공간을 만들어도 개인 목표가 개인 공간에 남는다"
   await page.getByRole("button", { name: "내 공간", exact: true }).click();
   await expect(page.getByText("영양제 먹기")).toBeVisible();
 });
+
+test("목표 카드를 드래그해 순서를 저장한다", async ({ page }) => {
+  await page.getByRole("button", { name: /목표 관리/ }).click();
+  const rows = page.locator(".manage-row");
+  await rows.nth(0).dragTo(rows.nth(2));
+  await expect(rows.nth(0)).toContainText("물 마시기");
+  await page.reload();
+  await page.getByRole("button", { name: /목표 관리/ }).click();
+  await expect(page.locator(".manage-row").nth(0)).toContainText("물 마시기");
+  await expect(page.getByRole("button", { name: "↑" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "↓" })).toHaveCount(0);
+});

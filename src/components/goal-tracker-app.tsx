@@ -125,6 +125,13 @@ export function GoalTrackerApp({
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const reorderDrag = useRef<{
+    itemId: string;
+    startY: number;
+    order: string[];
+    originalItems: GoalItem[];
+  } | null>(null);
+  const suppressEditClick = useRef(false);
 
   const load = useCallback(
     async (preferredSpaceId?: string) => {
@@ -300,40 +307,63 @@ export function GoalTrackerApp({
     }));
   }
 
-  async function moveItem(itemId: string, direction: -1 | 1) {
-    const index = activeItems.findIndex((item) => item.id === itemId);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= activeItems.length) return;
-    const reordered = [...activeItems];
-    [reordered[index], reordered[target]] = [
-      reordered[target],
-      reordered[index],
-    ];
-    const previous = data.items;
+  function startReorder(
+    event: React.PointerEvent<HTMLDivElement>,
+    itemId: string,
+  ) {
+    if ((event.target as HTMLElement).closest(".archive-action")) return;
+    reorderDrag.current = {
+      itemId,
+      startY: event.clientY,
+      order: activeItems.map((item) => item.id),
+      originalItems: data.items,
+    };
+  }
+
+  function updateReorder(event: React.PointerEvent<HTMLDivElement>) {
+    const drag = reorderDrag.current;
+    if (!drag) return;
+    if (!draggedItemId && Math.abs(event.clientY - drag.startY) < 8) return;
+    if (!draggedItemId) {
+      suppressEditClick.current = true;
+      setDraggedItemId(drag.itemId);
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+
+    const targetId = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>("[data-goal-id]")?.dataset.goalId;
+    if (!targetId || targetId === drag.itemId) return;
+    const from = drag.order.indexOf(drag.itemId);
+    const to = drag.order.indexOf(targetId);
+    if (from < 0 || to < 0 || from === to) return;
+    drag.order.splice(from, 1);
+    drag.order.splice(to, 0, drag.itemId);
     setData((current) => ({
       ...current,
       items: current.items.map((item) => {
-        const nextIndex = reordered.findIndex((value) => value.id === item.id);
-        return nextIndex < 0 ? item : { ...item, sort_order: nextIndex };
+        const index = drag.order.indexOf(item.id);
+        return index < 0 ? item : { ...item, sort_order: index };
       }),
     }));
-    try {
-      await repository.reorderItems(reordered.map((item) => item.id));
-    } catch (error) {
-      setData((current) => ({ ...current, items: previous }));
-      throw error;
-    }
   }
 
-  async function moveItemBefore(itemId: string, targetId: string) {
-    if (itemId === targetId) return;
-    const reordered = activeItems.filter((item) => item.id !== itemId);
-    const targetIndex = reordered.findIndex((item) => item.id === targetId);
-    const moving = activeItems.find((item) => item.id === itemId);
-    if (!moving || targetIndex < 0) return;
-    reordered.splice(targetIndex, 0, moving);
-    await repository.reorderItems(reordered.map((item) => item.id));
-    await load(spaceId);
+  function finishReorder() {
+    const drag = reorderDrag.current;
+    reorderDrag.current = null;
+    if (!suppressEditClick.current || !drag) return;
+    setDraggedItemId(null);
+    window.setTimeout(() => {
+      suppressEditClick.current = false;
+    }, 0);
+    void run(async () => {
+      try {
+        await repository.reorderItems(drag.order);
+      } catch (error) {
+        setData((current) => ({ ...current, items: drag.originalItems }));
+        throw error;
+      }
+    });
   }
 
   if (loading)
@@ -530,40 +560,28 @@ export function GoalTrackerApp({
             />
             <div className="section-title">
               <span>활성 목표 {activeItems.length}개</span>
-              <small>드래그 또는 화살표로 정렬</small>
+              <small>목표를 위아래로 드래그</small>
             </div>
             <div className="manage-list">
-              {activeItems.map((item, index) => (
+              {activeItems.map((item) => (
                 <div
                   className={`manage-row ${draggedItemId === item.id ? "is-dragging" : ""}`}
                   key={item.id}
-                  draggable
-                  onDragStart={() => setDraggedItemId(item.id)}
-                  onDragEnd={() => setDraggedItemId(null)}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={() => {
-                    if (draggedItemId)
-                      void run(() => moveItemBefore(draggedItemId, item.id));
-                    setDraggedItemId(null);
-                  }}
+                  data-goal-id={item.id}
+                  onPointerDown={(event) => startReorder(event, item.id)}
+                  onPointerMove={updateReorder}
+                  onPointerUp={finishReorder}
+                  onPointerCancel={finishReorder}
                 >
-                  <div className="reorder-actions">
-                    <button
-                      disabled={index === 0}
-                      onClick={() => void run(() => moveItem(item.id, -1))}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      disabled={index === activeItems.length - 1}
-                      onClick={() => void run(() => moveItem(item.id, 1))}
-                    >
-                      ↓
-                    </button>
-                  </div>
                   <button
                     className="manage-main"
-                    onClick={() => setDraft(toDraft(item))}
+                    onClick={() => {
+                      if (suppressEditClick.current) {
+                        suppressEditClick.current = false;
+                        return;
+                      }
+                      setDraft(toDraft(item));
+                    }}
                   >
                     <span>{item.icon}</span>
                     <span>
