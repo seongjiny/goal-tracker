@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatKoreanDate, shiftDateKey, toDateKey } from "@/lib/date";
 import type { AppUser, DailyItem, DailyRecord, Household } from "@/lib/types";
@@ -80,6 +80,22 @@ export function GoalTrackerApp({ mode, user = DEMO_USER }: { mode: "demo" | "sup
   const [draft, setDraft] = useState<ItemDraft | null>(null);
   const [inviteCode, setInviteCode] = useState("");
 
+  const navigate = useCallback((nextPage: Page) => {
+    if (nextPage === page) return;
+    window.history.pushState({ ...window.history.state, goalTrackerPage: nextPage }, "");
+    setPage(nextPage);
+  }, [page]);
+
+  useEffect(() => {
+    window.history.replaceState({ ...window.history.state, goalTrackerPage: "today" }, "");
+    const handlePopState = (event: PopStateEvent) => {
+      const previousPage = event.state?.goalTrackerPage;
+      if ((["today", "history", "items", "archive", "household"] as Page[]).includes(previousPage)) setPage(previousPage);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   const persistDemo = useCallback((nextItems: DailyItem[], nextRecords: DailyRecord[]) => {
     if (mode === "demo") localStorage.setItem("goal-tracker-demo-v1", JSON.stringify({ items: nextItems, records: nextRecords }));
   }, [mode]);
@@ -110,8 +126,8 @@ export function GoalTrackerApp({ mode, user = DEMO_USER }: { mode: "demo" | "sup
     setHousehold(joined);
     const start = shiftDateKey(toDateKey(), -90);
     const [{ data: itemData, error: itemError }, { data: recordData, error: recordError }] = await Promise.all([
-      supabase.from("daily_items").select("*").eq("household_id", joined.id).order("sort_order"),
-      supabase.from("daily_records").select("*").gte("record_date", start).lte("record_date", toDateKey()),
+      supabase.from("daily_items").select("*").eq("household_id", joined.id).eq("created_by", user.id).order("sort_order"),
+      supabase.from("daily_records").select("*").eq("recorded_by", user.id).gte("record_date", start).lte("record_date", toDateKey()),
     ]);
     if (itemError || recordError) setNotice("일부 기록을 불러오지 못했습니다.");
     setItems((itemData ?? []) as DailyItem[]);
@@ -210,16 +226,16 @@ export function GoalTrackerApp({ mode, user = DEMO_USER }: { mode: "demo" | "sup
         {loading ? <div className="loading">기록을 불러오는 중…</div> : (
           <>
             {page === "today" && <section className="app-page">
-              <header className="app-header"><div><p>우리의 하루</p><h1>{user.nickname}님, 좋은 하루예요</h1></div><button className="circle-button" onClick={() => setPage("household")} aria-label="공유 공간 설정">⚙</button></header>
+              <header className="app-header"><div><p>우리의 하루</p><h1>{user.nickname}님, 좋은 하루예요</h1></div><button className="circle-button" onClick={() => navigate("household")} aria-label="공유 공간 설정">⚙</button></header>
               <div className="date-switcher"><button onClick={() => setSelectedDate(shiftDateKey(selectedDate, -1))}>‹</button><div><strong>{formatKoreanDate(selectedDate)}</strong><span>{selectedDate === toDateKey() ? "오늘" : selectedDate}</span></div><button onClick={() => setSelectedDate(shiftDateKey(selectedDate, 1))} disabled={selectedDate >= toDateKey()}>›</button></div>
               <div className="progress-panel"><div><strong>{completedCount} / {activeItems.length} 완료</strong><span>{percentage}%</span></div><div className="progress-bar"><i style={{ width: `${percentage}%` }} /></div></div>
-              <div className="section-title"><span>오늘의 기록</span><small>항목을 눌러 완료</small></div>
-              <div className="daily-list">{activeItems.length ? activeItems.map((item) => <button className={`daily-row ${completedIds.has(item.id) ? "is-done" : ""}`} key={item.id} onClick={() => toggleItem(item)}><span className={`item-icon ${item.color ?? "green"}`}>{item.icon ?? "✓"}</span><span><b>{item.title}</b><small>{streak(item.id) ? `연속 ${streak(item.id)}일` : "오늘부터 시작"}</small></span><i>✓</i></button>) : <EmptyState onAdd={() => { setPage("items"); setDraft({ title: "", icon: "✓", color: "green" }); }} />}</div>
+              <div className="section-title"><span>오늘의 기록</span><small>눌러서 완료 · 왼쪽으로 밀어 편집</small></div>
+              <div className="daily-list">{activeItems.length ? activeItems.map((item) => <SwipeableDailyRow key={item.id} item={item} completed={completedIds.has(item.id)} streakDays={streak(item.id)} onToggle={() => toggleItem(item)} onEdit={() => setDraft({ id: item.id, title: item.title, icon: item.icon ?? "✓", color: item.color ?? "green" })} />) : <EmptyState onAdd={() => { navigate("items"); setDraft({ title: "", icon: "✓", color: "green" }); }} />}</div>
             </section>}
 
             {page === "history" && <section className="app-page"><header className="app-header"><div><p>최근 기록</p><h1>지난 7일</h1></div><span className="header-symbol">▦</span></header><div className="history-grid"><span></span>{weekDates.map((date) => <span className="history-head" key={date}>{date === toDateKey() ? "오늘" : new Intl.DateTimeFormat("ko", { weekday: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`))}</span>)}{activeItems.map((item) => <div className="history-row" key={item.id}><span>{item.title}</span>{weekDates.map((date) => <i className={records.some((record) => record.item_id === item.id && record.record_date === date) ? "hit" : ""} key={date}>{records.some((record) => record.item_id === item.id && record.record_date === date) ? "✓" : "–"}</i>)}</div>)}</div><div className="stat-grid"><div><span>가장 긴 현재 기록</span><strong>{Math.max(0, ...activeItems.map((item) => streak(item.id)))}일</strong></div><div><span>최근 7일 완료율</span><strong>{activeItems.length ? Math.round(records.filter((record) => weekDates.includes(record.record_date) && activeItems.some((item) => item.id === record.item_id)).length / (activeItems.length * 7) * 100) : 0}%</strong></div></div></section>}
 
-            {page === "items" && <section className="app-page"><header className="app-header"><div><p>설정</p><h1>항목 관리</h1></div><button className="circle-button" onClick={() => setPage("archive")} aria-label="보관함">▣</button></header><div className="section-title"><span>활성 항목 {activeItems.length}개</span><small>항목을 눌러 수정</small></div><div className="manage-list">{activeItems.map((item) => <div className="manage-row" key={item.id}><span className="drag">⠿</span><button className="manage-main" onClick={() => setDraft({ id: item.id, title: item.title, icon: item.icon ?? "✓", color: item.color ?? "green" })}><span>{item.icon}</span><b>{item.title}</b></button><button className="archive-action" onClick={() => setArchived(item, true)} aria-label="보관">▣</button></div>)}</div><button className="primary-button" onClick={() => setDraft({ title: "", icon: "✓", color: "green" })}>＋ 새 항목 추가</button><p className="helper-copy">보관한 항목의 과거 기록은 유지됩니다.</p></section>}
+            {page === "items" && <section className="app-page"><header className="app-header"><div><p>설정</p><h1>항목 관리</h1></div><button className="circle-button" onClick={() => navigate("archive")} aria-label="보관함">▣</button></header><div className="section-title"><span>활성 항목 {activeItems.length}개</span><small>항목을 눌러 수정</small></div><div className="manage-list">{activeItems.map((item) => <div className="manage-row" key={item.id}><span className="drag">⠿</span><button className="manage-main" onClick={() => setDraft({ id: item.id, title: item.title, icon: item.icon ?? "✓", color: item.color ?? "green" })}><span>{item.icon}</span><b>{item.title}</b></button><button className="archive-action" onClick={() => setArchived(item, true)} aria-label="보관">▣</button></div>)}</div><button className="primary-button" onClick={() => setDraft({ title: "", icon: "✓", color: "green" })}>＋ 새 항목 추가</button><p className="helper-copy">보관한 항목의 과거 기록은 유지됩니다.</p></section>}
 
             {page === "archive" && <section className="app-page"><button className="back-button" onClick={() => setPage("items")}>‹ 항목 관리</button><header className="app-header"><div><p>중단한 기록</p><h1>보관함</h1></div></header><div className="section-title"><span>보관된 항목 {archivedItems.length}개</span><small>과거 기록 유지</small></div><div className="archive-list">{archivedItems.length ? archivedItems.map((item) => <div className="archive-row" key={item.id}><span className={`item-icon ${item.color ?? "green"}`}>{item.icon}</span><span><b>{item.title}</b><small>보관된 항목</small></span><button onClick={() => setArchived(item, false)}>복원</button></div>) : <p className="empty-copy">보관된 항목이 없습니다.</p>}</div></section>}
 
@@ -227,12 +243,45 @@ export function GoalTrackerApp({ mode, user = DEMO_USER }: { mode: "demo" | "sup
 
             {draft && <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="item-dialog-title"><div className="item-dialog"><div className="dialog-header"><div><p>Daily Item</p><h2 id="item-dialog-title">{draft.id ? "항목 수정" : "새 항목 추가"}</h2></div><button onClick={() => setDraft(null)} aria-label="닫기">×</button></div><label>항목 이름<input autoFocus value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="예: 영양제 먹기" maxLength={80} /></label><fieldset><legend>아이콘</legend><div className="icon-options">{ICON_OPTIONS.map((icon) => <button className={draft.icon === icon.value ? "selected" : ""} aria-label={icon.label} title={icon.label} key={icon.value} onClick={() => setDraft({ ...draft, icon: icon.value })}>{icon.value}</button>)}</div></fieldset><fieldset><legend>색상</legend><div className="color-options">{COLOR_OPTIONS.map((color) => <button className={`${color.value} ${draft.color === color.value ? "selected" : ""}`} aria-label={color.label} title={color.label} key={color.value} onClick={() => setDraft({ ...draft, color: color.value })} />)}</div></fieldset><div className="dialog-actions"><button onClick={() => setDraft(null)}>취소</button><button className="primary-button" onClick={saveItem} disabled={!draft.title.trim()}>저장</button></div></div></div>}
 
-            {!(["archive", "household"] as Page[]).includes(page) && <nav className="bottom-nav"><button className={page === "today" ? "active" : ""} onClick={() => setPage("today")}><b>✓</b><span>오늘</span></button><button className={page === "history" ? "active" : ""} onClick={() => setPage("history")}><b>▥</b><span>기록</span></button><button className={page === "items" ? "active" : ""} onClick={() => setPage("items")}><b>☷</b><span>항목 관리</span></button></nav>}
+            {!(["archive", "household"] as Page[]).includes(page) && <nav className="bottom-nav"><button className={page === "today" ? "active" : ""} onClick={() => navigate("today")}><b>✓</b><span>오늘</span></button><button className={page === "history" ? "active" : ""} onClick={() => navigate("history")}><b>▥</b><span>기록</span></button><button className={page === "items" ? "active" : ""} onClick={() => navigate("items")}><b>☷</b><span>항목 관리</span></button></nav>}
           </>
         )}
       </section>
     </main>
   );
+}
+
+function SwipeableDailyRow({ item, completed, streakDays, onToggle, onEdit }: { item: DailyItem; completed: boolean; streakDays: number; onToggle: () => void; onEdit: () => void }) {
+  const [offset, setOffset] = useState(0);
+  const drag = useRef({ startX: 0, startY: 0, initialOffset: 0, moved: false });
+
+  function finishSwipe() {
+    setOffset((current) => current < -42 ? -76 : 0);
+  }
+
+  return <div className={`daily-swipe ${offset < 0 ? "is-open" : ""}`}>
+    <button className="daily-edit-action" onClick={() => { setOffset(0); onEdit(); }} aria-label={`${item.title} 편집`}>편집</button>
+    <button
+      className={`daily-row ${completed ? "is-done" : ""}`}
+      style={{ transform: `translateX(${offset}px)` }}
+      onPointerDown={(event) => { drag.current = { startX: event.clientX, startY: event.clientY, initialOffset: offset, moved: false }; event.currentTarget.setPointerCapture(event.pointerId); }}
+      onPointerMove={(event) => {
+        if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+        const deltaX = event.clientX - drag.current.startX;
+        const deltaY = event.clientY - drag.current.startY;
+        if (Math.abs(deltaY) > Math.abs(deltaX)) return;
+        if (Math.abs(deltaX) > 6) drag.current.moved = true;
+        setOffset(Math.max(-76, Math.min(0, drag.current.initialOffset + deltaX)));
+      }}
+      onPointerUp={finishSwipe}
+      onPointerCancel={finishSwipe}
+      onClick={() => { if (drag.current.moved) { drag.current.moved = false; return; } if (offset < 0) { setOffset(0); return; } onToggle(); }}
+    >
+      <span className={`item-icon ${item.color ?? "green"}`}>{item.icon ?? "✓"}</span>
+      <span><b>{item.title}</b><small>{streakDays ? `연속 ${streakDays}일` : "오늘부터 시작"}</small></span>
+      <span className="completion-control" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="m5 10 3.2 3.2L15.5 6.8" /></svg></span>
+    </button>
+  </div>;
 }
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {

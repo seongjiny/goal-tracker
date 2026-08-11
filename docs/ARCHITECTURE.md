@@ -38,7 +38,7 @@ interface GoalRepository {
 현재 앱은 설정 여부에 따라 두 모드를 제공한다.
 
 - Supabase 환경변수 없음: 브라우저 `localStorage` 기반 미리보기
-- Supabase 환경변수 있음: Kakao OAuth와 Household 공동 데이터
+- Supabase 환경변수 있음: Kakao OAuth와 Household 안에서 소유자별로 분리된 개인 데이터
 
 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`를 우선 사용하고, 기존 프로젝트의 anon key는 `NEXT_PUBLIC_SUPABASE_ANON_KEY`로 대체할 수 있다.
 
@@ -61,7 +61,8 @@ interface GoalRepository {
 
 - 1.1차에서 Supabase Kakao OAuth를 사용한다.
 - 사용자 데이터 테이블은 RLS를 활성화한다.
-- Household 구성원만 해당 Household의 항목과 기록에 접근할 수 있어야 한다.
+- Household 참여 여부와 관계없이 사용자는 자신이 만든 항목과 기록에만 접근할 수 있어야 한다.
+- Household 참여 시 기존 개인 항목은 새 Household로 이동하며 삭제하지 않는다.
 - service role key와 비밀 키를 클라이언트에 노출하지 않는다.
 
 ## 확장 기준
