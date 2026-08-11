@@ -20,10 +20,11 @@ pnpm dev
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm test:e2e
 pnpm build
 ```
 
-E2E 테스트를 추가한 뒤 `test:e2e` 명령을 이 문서와 `package.json`에 함께 등록한다.
+E2E는 개발 전용 `/?demo=1`과 Playwright의 모바일·데스크톱 프로젝트를 사용한다.
 
 ## 코드 기준
 

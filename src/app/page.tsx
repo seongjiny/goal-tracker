@@ -6,12 +6,13 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
+  const params = await searchParams;
+  if (process.env.NODE_ENV !== "production" && params.demo === "1") return <GoalTrackerApp mode="demo" />;
   const { isConfigured } = getSupabaseConfig();
   if (!isConfigured) return <GoalTrackerApp mode="demo" />;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const params = await searchParams;
   if (!user) return <LoginPage hasError={params.authError === "1"} />;
 
   const metadata = user.user_metadata;
