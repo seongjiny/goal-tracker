@@ -10,6 +10,43 @@ type ItemDraft = { id?: string; title: string; icon: string; color: string };
 
 const DEMO_USER: AppUser = { id: "demo-user", nickname: "우리", avatarUrl: null };
 const DEMO_HOUSEHOLD: Household = { id: "demo-household", name: "우리 집", invite_code: "DEMO2026" };
+const ICON_OPTIONS = [
+  { value: "✓", label: "완료" },
+  { value: "🙏", label: "기도" },
+  { value: "💻", label: "노트북과 개발" },
+  { value: "💊", label: "영양제와 약" },
+  { value: "🏃", label: "달리기" },
+  { value: "🏋️", label: "근력 운동" },
+  { value: "🚶", label: "걷기" },
+  { value: "🦮", label: "강아지 산책" },
+  { value: "🐶", label: "강아지" },
+  { value: "🐱", label: "고양이" },
+  { value: "📒", label: "기록" },
+  { value: "✍️", label: "글쓰기" },
+  { value: "📚", label: "독서" },
+  { value: "💧", label: "물 마시기" },
+  { value: "🥗", label: "건강한 식사" },
+  { value: "🧹", label: "청소" },
+  { value: "💰", label: "재정 관리" },
+  { value: "🛌", label: "수면" },
+  { value: "🌱", label: "성장" },
+  { value: "❤️", label: "사랑과 관계" },
+  { value: "🎯", label: "목표" },
+  { value: "🗓️", label: "일정" },
+  { value: "☕", label: "휴식" },
+] as const;
+const COLOR_OPTIONS = [
+  { value: "green", label: "초록" },
+  { value: "teal", label: "청록" },
+  { value: "blue", label: "파랑" },
+  { value: "sky", label: "하늘" },
+  { value: "yellow", label: "노랑" },
+  { value: "orange", label: "주황" },
+  { value: "red", label: "빨강" },
+  { value: "pink", label: "분홍" },
+  { value: "purple", label: "보라" },
+  { value: "gray", label: "회색" },
+] as const;
 const DEMO_ITEMS: DailyItem[] = [
   { id: "vitamin", household_id: "demo-household", created_by: "demo-user", title: "영양제 먹기", icon: "💊", color: "green", sort_order: 0, archived_at: null, created_at: new Date().toISOString() },
   { id: "exercise", household_id: "demo-household", created_by: "demo-user", title: "30분 운동", icon: "🏃", color: "blue", sort_order: 1, archived_at: null, created_at: new Date().toISOString() },
@@ -188,7 +225,7 @@ export function GoalTrackerApp({ mode, user = DEMO_USER }: { mode: "demo" | "sup
 
             {page === "household" && <section className="app-page"><button className="back-button" onClick={() => setPage("today")}>‹ 오늘</button><header className="app-header"><div><p>함께 쓰기</p><h1>{household?.name ?? "우리 집"}</h1></div></header><div className="invite-card"><span>배우자 초대 코드</span><strong>{household?.invite_code ?? "-"}</strong><button onClick={() => household && navigator.clipboard.writeText(household.invite_code)}>코드 복사</button></div><div className="form-block"><label htmlFor="invite">받은 초대 코드</label><input id="invite" value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase())} placeholder="8자리 코드" maxLength={8} /><button className="primary-button" onClick={joinHousehold} disabled={!inviteCode.trim()}>공유 공간 참여</button></div>{mode === "supabase" && <button className="logout-button" onClick={logout}>로그아웃</button>}</section>}
 
-            {draft && <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="item-dialog-title"><div className="item-dialog"><div className="dialog-header"><div><p>Daily Item</p><h2 id="item-dialog-title">{draft.id ? "항목 수정" : "새 항목 추가"}</h2></div><button onClick={() => setDraft(null)}>×</button></div><label>항목 이름<input autoFocus value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="예: 영양제 먹기" maxLength={80} /></label><fieldset><legend>아이콘</legend><div className="icon-options">{["✓", "💊", "🏃", "📒", "📚", "💧", "🧘"].map((icon) => <button className={draft.icon === icon ? "selected" : ""} key={icon} onClick={() => setDraft({ ...draft, icon })}>{icon}</button>)}</div></fieldset><fieldset><legend>색상</legend><div className="color-options">{["green", "blue", "yellow", "pink", "purple"].map((color) => <button className={`${color} ${draft.color === color ? "selected" : ""}`} aria-label={color} key={color} onClick={() => setDraft({ ...draft, color })} />)}</div></fieldset><div className="dialog-actions"><button onClick={() => setDraft(null)}>취소</button><button className="primary-button" onClick={saveItem} disabled={!draft.title.trim()}>저장</button></div></div></div>}
+            {draft && <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="item-dialog-title"><div className="item-dialog"><div className="dialog-header"><div><p>Daily Item</p><h2 id="item-dialog-title">{draft.id ? "항목 수정" : "새 항목 추가"}</h2></div><button onClick={() => setDraft(null)} aria-label="닫기">×</button></div><label>항목 이름<input autoFocus value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="예: 영양제 먹기" maxLength={80} /></label><fieldset><legend>아이콘</legend><div className="icon-options">{ICON_OPTIONS.map((icon) => <button className={draft.icon === icon.value ? "selected" : ""} aria-label={icon.label} title={icon.label} key={icon.value} onClick={() => setDraft({ ...draft, icon: icon.value })}>{icon.value}</button>)}</div></fieldset><fieldset><legend>색상</legend><div className="color-options">{COLOR_OPTIONS.map((color) => <button className={`${color.value} ${draft.color === color.value ? "selected" : ""}`} aria-label={color.label} title={color.label} key={color.value} onClick={() => setDraft({ ...draft, color: color.value })} />)}</div></fieldset><div className="dialog-actions"><button onClick={() => setDraft(null)}>취소</button><button className="primary-button" onClick={saveItem} disabled={!draft.title.trim()}>저장</button></div></div></div>}
 
             {!(["archive", "household"] as Page[]).includes(page) && <nav className="bottom-nav"><button className={page === "today" ? "active" : ""} onClick={() => setPage("today")}><b>✓</b><span>오늘</span></button><button className={page === "history" ? "active" : ""} onClick={() => setPage("history")}><b>▥</b><span>기록</span></button><button className={page === "items" ? "active" : ""} onClick={() => setPage("items")}><b>☷</b><span>항목 관리</span></button></nav>}
           </>
